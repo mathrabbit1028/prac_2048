@@ -8,21 +8,22 @@
 
 .header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   width: 400px;
   margin-bottom: 20px;
 }
 
 .board {
-  display: grid;
-  grid-template-columns: repeat(4, 80px);
-  grid-gap: 10px;
+  position: relative;
+  width: 360px;
+  height: 360px;
   background: #bbada0;
   padding: 10px;
   border-radius: 6px;
 }
 
 .tile {
+  position: absolute;
   width: 80px;
   height: 80px;
   background: #cdc1b4;
@@ -32,6 +33,7 @@
   font-weight: bold;
   font-size: 24px;
   border-radius: 4px;
+  transition: top 0.15s ease, left 0.15s ease;
 }
 
 .tile-2 { background: #eee4da; color: #776e65; }
@@ -46,16 +48,17 @@
 .tile-1024 { background: #edc53f; color: #f9f6f2; font-size: 18px; }
 .tile-2048 { background: #edc22e; color: #f9f6f2; font-size: 18px; }
 
-.game-over {
-  margin-top: 20px;
-  text-align: center;
-  color: red;
-  font-weight: bold;
+.overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(238, 228, 218, 0.73);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.game-win {
-  margin-top: 20px;
-  text-align: center;
-  color: green;
+.message {
+  font-size: 32px;
   font-weight: bold;
 }

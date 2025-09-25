@@ -1,195 +1,203 @@
-import React, { useEffect, useState, useCallback } from "react";
-import './app.css';
+import React, { useEffect, useState } from "react";
+import "./app.css";
 
 const SIZE = 4;
-const START_TILES = 2;
 
-type Grid = number[][];
+type Tile = {
+  id: number;
+  value: number;
+  row: number;
+  col: number;
+};
 
-function newEmptyGrid(): Grid {
-  return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+let nextId = 1;
+
+function newEmptyBoard(): Tile[] {
+  return [];
 }
 
-function cloneGrid(grid: Grid): Grid {
-  return grid.map((row) => row.slice());
-}
-
-function addRandomTile(grid: Grid): Grid {
-  const empties: [number, number][] = [];
+function getEmptyCells(tiles: Tile[]): [number, number][] {
+  const occupied = new Set(tiles.map((t) => `${t.row},${t.col}`));
+  const cells: [number, number][] = [];
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
-      if (grid[r][c] === 0) empties.push([r, c]);
+      if (!occupied.has(`${r},${c}`)) cells.push([r, c]);
     }
   }
-  if (empties.length === 0) return grid;
-  const [r, c] = empties[Math.floor(Math.random() * empties.length)];
-  grid[r][c] = Math.random() < 0.9 ? 2 : 4;
-  return grid;
+  return cells;
 }
 
-function transpose(grid: Grid): Grid {
-  const res = newEmptyGrid();
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) res[r][c] = grid[c][r];
-  }
-  return res;
+function addRandomTile(tiles: Tile[]): Tile[] {
+  const empties = getEmptyCells(tiles);
+  if (empties.length === 0) return tiles;
+  const [row, col] = empties[Math.floor(Math.random() * empties.length)];
+  const value = Math.random() < 0.9 ? 2 : 4;
+  return [...tiles, { id: nextId++, value, row, col }];
 }
 
-function reverseRows(grid: Grid): Grid {
-  return grid.map((row) => row.slice().reverse());
-}
-
-function slideAndMergeRow(row: number[]): { row: number[] } {
-  const filtered = row.filter((v) => v !== 0);
-  const newRow: number[] = [];
-  let score = 0;
-  for (let i = 0; i < filtered.length; i++) {
-    if (filtered[i] === filtered[i + 1]) {
-      const merged = filtered[i] * 2;
-      newRow.push(merged);
-      score += merged;
-      i++;
-    } else {
-      newRow.push(filtered[i]);
-    }
-  }
-  while (newRow.length < SIZE) newRow.push(0);
-  return { row: newRow };
-}
-
-function moveLeft(grid: Grid): { grid: Grid; moved: boolean } {
-  let moved = false;
-  const newGrid: Grid = grid.map((row) => {
-    const { row: newRow } = slideAndMergeRow(row);
-    if (!moved && newRow.some((v, i) => v !== row[i])) moved = true;
-    return newRow;
-  });
-  return { grid: newGrid, moved };
-}
-
-function moveRight(grid: Grid): { grid: Grid; moved: boolean } {
-  const reversed = reverseRows(grid);
-  const { grid: movedGrid, moved } = moveLeft(reversed);
-  return { grid: reverseRows(movedGrid), moved };
-}
-
-function moveUp(grid: Grid): { grid: Grid; moved: boolean } {
-  const transposed = transpose(grid);
-  const { grid: movedGrid, moved } = moveLeft(transposed);
-  return { grid: transpose(movedGrid), moved };
-}
-
-function moveDown(grid: Grid): { grid: Grid; moved: boolean } {
-  const transposed = transpose(grid);
-  const { grid: movedGrid, moved } = moveRight(transposed);
-  return { grid: transpose(movedGrid), moved };
-}
-
-function canMove(grid: Grid): boolean {
-  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) if (grid[r][c] === 0) return true;
+function canMove(tiles: Tile[]): boolean {
+  if (tiles.length < SIZE * SIZE) return true;
+  const grid: number[][] = Array.from({ length: SIZE }, () =>
+    Array(SIZE).fill(0)
+  );
+  tiles.forEach((t) => (grid[t.row][t.col] = t.value));
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
       const v = grid[r][c];
-      if ((c < SIZE - 1 && grid[r][c + 1] === v) || (r < SIZE - 1 && grid[r + 1][c] === v)) return true;
+      if ((c < SIZE - 1 && grid[r][c + 1] === v) || (r < SIZE - 1 && grid[r + 1][c] === v)) {
+        return true;
+      }
     }
   }
   return false;
 }
 
-function initGrid(): Grid {
-  let g = newEmptyGrid();
-  for (let i = 0; i < START_TILES; i++) g = addRandomTile(g);
-  return g;
+function slideRow(row: (Tile | null)[]): { newRow: (Tile | null)[]; merged: boolean } {
+  const vals = row.filter((t) => t !== null) as Tile[];
+  const newRow: (Tile | null)[] = [];
+  let merged = false;
+
+  for (let i = 0; i < vals.length; i++) {
+    if (i < vals.length - 1 && vals[i].value === vals[i + 1].value) {
+      const mergedTile: Tile = {
+        id: nextId++,
+        value: vals[i].value * 2,
+        row: 0,
+        col: 0,
+      };
+      newRow.push(mergedTile);
+      merged = true;
+      i++;
+    } else {
+      newRow.push({ ...vals[i] });
+    }
+  }
+  while (newRow.length < SIZE) newRow.push(null);
+  return { newRow, merged };
+}
+
+function moveTiles(tiles: Tile[], dir: string): { tiles: Tile[]; moved: boolean } {
+  let moved = false;
+  let merged = false;
+
+  // grid 형태로 변환
+  let grid: (Tile | null)[][] = Array.from({ length: SIZE }, () =>
+    Array(SIZE).fill(null)
+  );
+  tiles.forEach((t) => {
+    grid[t.row][t.col] = t;
+  });
+
+  if (dir === "ArrowLeft" || dir === "ArrowRight") {
+    for (let r = 0; r < SIZE; r++) {
+      let row = grid[r].slice();
+      if (dir === "ArrowRight") row = row.reverse();
+      const { newRow, merged: rowMerged } = slideRow(row);
+      if (dir === "ArrowRight") newRow.reverse();
+      for (let c = 0; c < SIZE; c++) {
+        const old = grid[r][c];
+        const nu = newRow[c];
+        if (old?.id !== nu?.id) moved = true;
+        if (nu) {
+          nu.row = r;
+          nu.col = c;
+        }
+      }
+      grid[r] = newRow;
+      if (rowMerged) merged = true;
+    }
+  } else {
+    for (let c = 0; c < SIZE; c++) {
+      let col = grid.map((row) => row[c]);
+      if (dir === "ArrowDown") col = col.reverse();
+      const { newRow, merged: colMerged } = slideRow(col);
+      if (dir === "ArrowDown") newRow.reverse();
+      for (let r = 0; r < SIZE; r++) {
+        const nu = newRow[r];
+        if (nu) {
+          nu.row = r;
+          nu.col = c;
+        }
+      }
+      for (let r = 0; r < SIZE; r++) {
+        const old = grid[r][c];
+        const nu = newRow[r];
+        if (old?.id !== nu?.id) moved = true;
+        grid[r][c] = nu;
+      }
+      if (colMerged) merged = true;
+    }
+  }
+
+  const newTiles = grid.flat().filter((t) => t !== null) as Tile[];
+  return { tiles: newTiles, moved };
 }
 
 const App: React.FC = () => {
-  const [grid, setGrid] = useState<Grid>(() => initGrid());
-  const [gameOver, setGameOver] = useState<boolean>(false);
-  const [gameWin, setGameWin] = useState<boolean>(false);
-
-  const applyMove = useCallback(
-    (fn: (g: Grid) => { grid: Grid; moved: boolean }) => {
-      setGrid((oldGrid) => {
-        const { grid: newGrid, moved } = fn(oldGrid);
-        if (!moved) return oldGrid;
-        const withTile = addRandomTile(cloneGrid(newGrid));
-        return withTile;
-      });
-    },
-    []
-  );
-
-  useEffect(() => {
-    setGameOver(!canMove(grid));
-  }, [grid]);
+  const [tiles, setTiles] = useState<Tile[]>(() => {
+    let init = newEmptyBoard();
+    init = addRandomTile(init);
+    init = addRandomTile(init);
+    return init;
+  });
+  const [gameOver, setGameOver] = useState(false);
+  const [gameWin, setGameWin] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (gameOver) return;
-      if (gameWin) return;
-      switch (e.key) {
-        case "ArrowLeft":
-        case "a":
-        case "A":
-          applyMove(moveLeft);
-          break;
-        case "ArrowRight":
-        case "d":
-        case "D":
-          applyMove(moveRight);
-          break;
-        case "ArrowUp":
-        case "w":
-        case "W":
-          applyMove(moveUp);
-          break;
-        case "ArrowDown":
-        case "s":
-        case "S":
-          applyMove(moveDown);
-          break;
+      if (gameOver || gameWin) return;
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        const { tiles: newTiles, moved } = moveTiles(tiles, e.key);
+        if (moved) {
+          let withNew = addRandomTile(newTiles);
+          setTiles(withNew);
+          if (!canMove(withNew)) setGameOver(true);
+          if (withNew.some((t) => t.value >= 128)) setGameWin(true);
+        }
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [applyMove, gameOver, gameWin]);
+  }, [tiles, gameOver, gameWin]);
 
-  useEffect(() => {
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        if (grid[r][c] === 128) {
-          setGameWin(true);
-          return;
-        }
-      }
-    }
-  }, [grid]);
+  function restart() {
+    let init: Tile[] = [];
+    init = addRandomTile(init);
+    init = addRandomTile(init);
+    setTiles(init);
+    setGameOver(false);
+    setGameWin(false);
+  }
 
   return (
     <div className="app">
       <div className="header">
         <h1>2048</h1>
+        <button onClick={restart}>Restart</button>
       </div>
-
       <div className="board">
-        {grid.flat().map((val, idx) => (
-          <div key={idx} className={`tile tile-${val}`}>
-            {val !== 0 ? val : ""}
+        {tiles.map((tile) => (
+          <div
+            key={tile.id}
+            className={`tile tile-${tile.value}`}
+            style={{
+              top: `${tile.row * 90 + 15}px`,
+              left: `${tile.col * 90 + 15}px`,
+            }}
+          >
+            {tile.value}
           </div>
         ))}
+        {(gameOver || gameWin) && (
+          <div className="overlay">
+            {gameOver && <div className="message">Game Over</div>}
+            {gameWin && <div className="message">You Win!</div>}
+          </div>
+        )}
       </div>
-
-      {gameOver ? (
-        <div className="game-over">
-          <div>Game Over</div>
-        </div>
-      ) : gameWin ? (
-        <div className="game-win">
-          <div>You Win!</div>
-        </div>
-      ) : null}
     </div>
   );
 };
 
 export default App;
+
