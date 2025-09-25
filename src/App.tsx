@@ -78,10 +78,10 @@ function slideRow(row: (Tile | null)[]): { newRow: (Tile | null)[]; merged: bool
 
 function moveTiles(tiles: Tile[], dir: string): { tiles: Tile[]; moved: boolean } {
   let moved = false;
-  let merged = false;
+  let _merged = false;
 
   // grid 형태로 변환
-  let grid: (Tile | null)[][] = Array.from({ length: SIZE }, () =>
+  const grid: (Tile | null)[][] = Array.from({ length: SIZE }, () =>
     Array(SIZE).fill(null)
   );
   tiles.forEach((t) => {
@@ -104,7 +104,7 @@ function moveTiles(tiles: Tile[], dir: string): { tiles: Tile[]; moved: boolean 
         }
       }
       grid[r] = newRow;
-      if (rowMerged) merged = true;
+      if (rowMerged) _merged = true;
     }
   } else {
     for (let c = 0; c < SIZE; c++) {
@@ -125,7 +125,7 @@ function moveTiles(tiles: Tile[], dir: string): { tiles: Tile[]; moved: boolean 
         if (old?.id !== nu?.id) moved = true;
         grid[r][c] = nu;
       }
-      if (colMerged) merged = true;
+      if (colMerged) _merged = true;
     }
   }
 
@@ -149,7 +149,7 @@ const App: React.FC = () => {
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
         const { tiles: newTiles, moved } = moveTiles(tiles, e.key);
         if (moved) {
-          let withNew = addRandomTile(newTiles);
+          const withNew = addRandomTile(newTiles);
           setTiles(withNew);
           if (!canMove(withNew)) setGameOver(true);
           if (withNew.some((t) => t.value >= 128)) setGameWin(true);
