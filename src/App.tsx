@@ -52,10 +52,9 @@ function canMove(tiles: Tile[]): boolean {
   return false;
 }
 
-function slideRow(row: (Tile | null)[]): { newRow: (Tile | null)[]; merged: boolean } {
+function slideRow(row: (Tile | null)[]): { newRow: (Tile | null)[] } {
   const vals = row.filter((t) => t !== null) as Tile[];
   const newRow: (Tile | null)[] = [];
-  let merged = false;
 
   for (let i = 0; i < vals.length; i++) {
     if (i < vals.length - 1 && vals[i].value === vals[i + 1].value) {
@@ -66,22 +65,20 @@ function slideRow(row: (Tile | null)[]): { newRow: (Tile | null)[]; merged: bool
         col: 0,
       };
       newRow.push(mergedTile);
-      merged = true;
       i++;
     } else {
       newRow.push({ ...vals[i] });
     }
   }
   while (newRow.length < SIZE) newRow.push(null);
-  return { newRow, merged };
+  return { newRow };
 }
 
 function moveTiles(tiles: Tile[], dir: string): { tiles: Tile[]; moved: boolean } {
   let moved = false;
-  let _merged = false;
 
   // grid 형태로 변환
-  const grid: (Tile | null)[][] = Array.from({ length: SIZE }, () =>
+  let grid: (Tile | null)[][] = Array.from({ length: SIZE }, () =>
     Array(SIZE).fill(null)
   );
   tiles.forEach((t) => {
@@ -92,7 +89,7 @@ function moveTiles(tiles: Tile[], dir: string): { tiles: Tile[]; moved: boolean 
     for (let r = 0; r < SIZE; r++) {
       let row = grid[r].slice();
       if (dir === "ArrowRight") row = row.reverse();
-      const { newRow, merged: rowMerged } = slideRow(row);
+      const { newRow } = slideRow(row);
       if (dir === "ArrowRight") newRow.reverse();
       for (let c = 0; c < SIZE; c++) {
         const old = grid[r][c];
@@ -104,13 +101,12 @@ function moveTiles(tiles: Tile[], dir: string): { tiles: Tile[]; moved: boolean 
         }
       }
       grid[r] = newRow;
-      if (rowMerged) _merged = true;
     }
   } else {
     for (let c = 0; c < SIZE; c++) {
       let col = grid.map((row) => row[c]);
       if (dir === "ArrowDown") col = col.reverse();
-      const { newRow, merged: colMerged } = slideRow(col);
+      const { newRow } = slideRow(col);
       if (dir === "ArrowDown") newRow.reverse();
       for (let r = 0; r < SIZE; r++) {
         const nu = newRow[r];
@@ -125,7 +121,6 @@ function moveTiles(tiles: Tile[], dir: string): { tiles: Tile[]; moved: boolean 
         if (old?.id !== nu?.id) moved = true;
         grid[r][c] = nu;
       }
-      if (colMerged) _merged = true;
     }
   }
 
