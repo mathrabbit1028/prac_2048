@@ -8,23 +8,9 @@
 
 .header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   width: 400px;
   margin-bottom: 20px;
-}
-
-.score-board {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.score-box {
-  background: #eee;
-  padding: 8px 12px;
-  border-radius: 4px;
-  text-align: center;
-  min-width: 60px;
 }
 
 .board {
@@ -67,7 +53,9 @@
   font-weight: bold;
 }
 
-.info {
+.game-win {
   margin-top: 20px;
-  color: #555;
+  text-align: center;
+  color: green;
+  font-weight: bold;
 }

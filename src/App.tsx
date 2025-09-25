@@ -39,7 +39,7 @@ function reverseRows(grid: Grid): Grid {
   return grid.map((row) => row.slice().reverse());
 }
 
-function slideAndMergeRow(row: number[]): { row: number[]; scoreGained: number } {
+function slideAndMergeRow(row: number[]): { row: number[] } {
   const filtered = row.filter((v) => v !== 0);
   const newRow: number[] = [];
   let score = 0;
@@ -54,37 +54,35 @@ function slideAndMergeRow(row: number[]): { row: number[]; scoreGained: number }
     }
   }
   while (newRow.length < SIZE) newRow.push(0);
-  return { row: newRow, scoreGained: score };
+  return { row: newRow };
 }
 
-function moveLeft(grid: Grid): { grid: Grid; moved: boolean; score: number } {
+function moveLeft(grid: Grid): { grid: Grid; moved: boolean } {
   let moved = false;
-  let score = 0;
   const newGrid: Grid = grid.map((row) => {
-    const { row: newRow, scoreGained } = slideAndMergeRow(row);
+    const { row: newRow } = slideAndMergeRow(row);
     if (!moved && newRow.some((v, i) => v !== row[i])) moved = true;
-    score += scoreGained;
     return newRow;
   });
-  return { grid: newGrid, moved, score };
+  return { grid: newGrid, moved };
 }
 
-function moveRight(grid: Grid): { grid: Grid; moved: boolean; score: number } {
+function moveRight(grid: Grid): { grid: Grid; moved: boolean } {
   const reversed = reverseRows(grid);
-  const { grid: movedGrid, moved, score } = moveLeft(reversed);
-  return { grid: reverseRows(movedGrid), moved, score };
+  const { grid: movedGrid, moved } = moveLeft(reversed);
+  return { grid: reverseRows(movedGrid), moved };
 }
 
-function moveUp(grid: Grid): { grid: Grid; moved: boolean; score: number } {
+function moveUp(grid: Grid): { grid: Grid; moved: boolean } {
   const transposed = transpose(grid);
-  const { grid: movedGrid, moved, score } = moveLeft(transposed);
-  return { grid: transpose(movedGrid), moved, score };
+  const { grid: movedGrid, moved } = moveLeft(transposed);
+  return { grid: transpose(movedGrid), moved };
 }
 
-function moveDown(grid: Grid): { grid: Grid; moved: boolean; score: number } {
+function moveDown(grid: Grid): { grid: Grid; moved: boolean } {
   const transposed = transpose(grid);
-  const { grid: movedGrid, moved, score } = moveRight(transposed);
-  return { grid: transpose(movedGrid), moved, score };
+  const { grid: movedGrid, moved } = moveRight(transposed);
+  return { grid: transpose(movedGrid), moved };
 }
 
 function canMove(grid: Grid): boolean {
@@ -104,43 +102,21 @@ function initGrid(): Grid {
   return g;
 }
 
-function tileClasses(val: number): string {
-  const base = "w-20 h-20 rounded-xl flex items-center justify-center font-bold text-xl shadow-inner";
-  if (val === 0) return `${base} bg-transparent`;
-  const text = val <= 4 ? "text-gray-800" : "text-white";
-  return `${base} ${text} bg-[rgba(0,0,0,0.15)]`;
-}
-
 const App: React.FC = () => {
   const [grid, setGrid] = useState<Grid>(() => initGrid());
-  const [score, setScore] = useState<number>(0);
-  const [best, setBest] = useState<number>(() => Number(localStorage.getItem("best2048") || 0));
-  const [history, setHistory] = useState<{ grid: Grid; score: number }[]>([]);
   const [gameOver, setGameOver] = useState<boolean>(false);
-
-  const pushHistory = useCallback((g: Grid, s: number) => {
-    setHistory((h) => [...h.slice(-9), { grid: cloneGrid(g), score: s }]);
-  }, []);
+  const [gameWin, setGameWin] = useState<boolean>(false);
 
   const applyMove = useCallback(
-    (fn: (g: Grid) => { grid: Grid; moved: boolean; score: number }) => {
+    (fn: (g: Grid) => { grid: Grid; moved: boolean }) => {
       setGrid((oldGrid) => {
-        const { grid: newGrid, moved, score: gained } = fn(oldGrid);
+        const { grid: newGrid, moved } = fn(oldGrid);
         if (!moved) return oldGrid;
         const withTile = addRandomTile(cloneGrid(newGrid));
-        setScore((oldScore) => {
-          const ns = oldScore + gained;
-          if (ns > best) {
-            setBest(ns);
-            localStorage.setItem("best2048", String(ns));
-          }
-          return ns;
-        });
-        pushHistory(oldGrid, score);
         return withTile;
       });
     },
-    [best, pushHistory, score]
+    []
   );
 
   useEffect(() => {
@@ -150,6 +126,7 @@ const App: React.FC = () => {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (gameOver) return;
+      if (gameWin) return;
       switch (e.key) {
         case "ArrowLeft":
         case "a":
@@ -175,42 +152,23 @@ const App: React.FC = () => {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [applyMove, gameOver]);
+  }, [applyMove, gameOver, gameWin]);
 
-  const restart = () => {
-    setGrid(initGrid());
-    setScore(0);
-    setHistory([]);
-    setGameOver(false);
-  };
-
-  const undo = () => {
-    setHistory((h) => {
-      if (h.length === 0) return h;
-      const last = h[h.length - 1];
-      setGrid(cloneGrid(last.grid));
-      setScore(last.score);
-      return h.slice(0, -1);
-    });
-    setGameOver(false);
-  };
+  useEffect(() => {
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (grid[r][c] === 128) {
+          setGameWin(true);
+          return;
+        }
+      }
+    }
+  }, [grid]);
 
   return (
     <div className="app">
       <div className="header">
         <h1>2048</h1>
-        <div className="score-board">
-          <div className="score-box">
-            <div>Score</div>
-            <div>{score}</div>
-          </div>
-          <div className="score-box">
-            <div>Best</div>
-            <div>{best}</div>
-          </div>
-          <button onClick={restart}>Restart</button>
-          <button onClick={undo}>Undo</button>
-        </div>
       </div>
 
       <div className="board">
@@ -224,11 +182,12 @@ const App: React.FC = () => {
       {gameOver ? (
         <div className="game-over">
           <div>Game Over</div>
-          <div>Press Restart to try again.</div>
         </div>
-      ) : (
-        <div className="info">Use arrow keys or WASD to move tiles.</div>
-      )}
+      ) : gameWin ? (
+        <div className="game-win">
+          <div>You Win!</div>
+        </div>
+      ) : null}
     </div>
   );
 };
